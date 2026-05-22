@@ -15,7 +15,7 @@ public class RootController {
     public ResponseEntity<Map<String, String>> root() {
         return ResponseEntity.ok(
                 Map.of(
-                        "message", "Execution OS Backend API is running",
+                        "message", "Nexus | Workflow Execution Platform API is running",
                         "swagger", "/swagger-ui/index.html",
                         "health", "/api/system/health"
                 )

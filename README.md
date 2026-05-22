@@ -1,4 +1,4 @@
-# Execution OS Backend
+# Nexus | Workflow Execution Platform
 
 ![Java](https://img.shields.io/badge/Java-17-orange?style=for-the-badge&logo=openjdk)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3-brightgreen?style=for-the-badge&logo=springboot)
@@ -25,7 +25,7 @@ GitHub Repository
 ---
 ## About
 
-**Execution OS Backend** is a Spring Boot 3 REST API for personal execution tracking. It provides secure APIs for user authentication, task management, daily execution logging, streak analytics, and leaderboard generation.
+**Nexus | Workflow Execution Platform** is a Spring Boot 3 REST API for personal execution tracking. It provides secure APIs for user authentication, task management, daily execution logging, streak analytics, and leaderboard generation.
 
 The project follows a **modular monolith** approach with clear domain separation and layered backend structure. It is designed as a backend-first system with JWT-based security, PostgreSQL persistence, Swagger documentation, test coverage, and containerized local deployment.
 

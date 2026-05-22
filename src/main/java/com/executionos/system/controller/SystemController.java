@@ -16,7 +16,7 @@ public class SystemController {
     private final String serviceName;
 
     public SystemController(
-            @Value("${system.health.service-name:Execution OS Backend}") String serviceName) {
+            @Value("${system.health.service-name:Nexus | Workflow Execution Platform}") String serviceName) {
         this.serviceName = serviceName;
     }
 

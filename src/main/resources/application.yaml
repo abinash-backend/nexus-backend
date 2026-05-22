@@ -1,6 +1,6 @@
 spring:
   application:
-    name: execution-os-backend
+    name: Nexus | Workflow Execution Platform
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/execution_os}
@@ -34,7 +34,7 @@ management:
 
 info:
   app:
-    name: Execution OS Backend
+    name: Nexus | Workflow Execution Platform
     description: Production monitoring endpoints
     version: 0.0.1-SNAPSHOT
 

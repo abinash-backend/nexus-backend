@@ -1,464 +1,336 @@
 # Nexus | Workflow Execution Platform
 
-![Java](https://img.shields.io/badge/Java-17-orange?style=for-the-badge&logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3-brightgreen?style=for-the-badge&logo=springboot)
-![Spring Security](https://img.shields.io/badge/Spring_Security-JWT%20Secured-6DB33F?style=for-the-badge&logo=springsecurity)
-![JWT](https://img.shields.io/badge/Auth-JWT-blue?style=for-the-badge&logo=jsonwebtokens)
-![Database](https://img.shields.io/badge/Database-PostgreSQL-4169E1?style=for-the-badge&logo=postgresql)
-![Build](https://img.shields.io/badge/Build-Maven-C71A36?style=for-the-badge&logo=apachemaven)
-![API Docs](https://img.shields.io/badge/API-Swagger%20%2F%20OpenAPI-85EA2D?style=for-the-badge&logo=swagger)
-![Testing](https://img.shields.io/badge/Tests-JUnit5%20%7C%20Mockito%20%7C%20MockMvc-25A162?style=for-the-badge)
-![Docker](https://img.shields.io/badge/Container-Docker-2496ED?style=for-the-badge&logo=docker)
+![Java 17](https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-brightgreen?style=flat-square&logo=springboot)
+![Spring Security](https://img.shields.io/badge/Spring_Security-JWT-6DB33F?style=flat-square&logo=springsecurity)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=flat-square&logo=postgresql)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker)
+![Maven](https://img.shields.io/badge/Build-Maven-C71A36?style=flat-square&logo=apachemaven)
+![OpenAPI](https://img.shields.io/badge/API-OpenAPI-85EA2D?style=flat-square&logo=swagger)
+![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-333333?style=flat-square)
 
----
-## Live API
+Nexus is a backend platform for workflow execution, task orchestration, and execution lifecycle tracking. It is implemented as a Spring Boot modular monolith with explicit domain boundaries so the codebase can scale operationally today and be decomposed into services later without forcing an early distributed systems design.
 
-Swagger API Documentation  
-[Open Swagger UI](https://execution-os-backend-latest.onrender.com/swagger-ui/index.html)
+The current repository focuses on secure API delivery, workflow accountability, and predictable state handling inside a single deployable unit. The architecture is backend-first: REST APIs, relational persistence, stateless authentication, containerized runtime, and domain separation that supports long-term maintainability.
 
-System Health Endpoint  
-[Check API Health](https://execution-os-backend-latest.onrender.com/api/system/health)
+## Overview
 
-GitHub Repository  
-[GitHub Repository](https://github.com/abinash-backend/execution-os-backend)
+Nexus models workflow execution as a controlled lifecycle:
 
----
-## About
+1. An authenticated user registers or signs in and receives a JWT.
+2. The user creates tasks that become workflow units owned by that identity.
+3. Execution events are recorded against those tasks on a per-day basis.
+4. The platform enforces ownership and duplicate-execution guards.
+5. Read models expose task state, execution history, and consistency metrics.
 
-**Nexus | Workflow Execution Platform** is a Spring Boot 3 REST API for personal execution tracking. It provides secure APIs for user authentication, task management, daily execution logging, streak analytics, and leaderboard generation.
+This keeps the platform centered on operational accountability rather than simple CRUD. The main design goal is reliable workflow state evolution under a clear module structure.
 
-The project follows a **modular monolith** approach with clear domain separation and layered backend structure. It is designed as a backend-first system with JWT-based security, PostgreSQL persistence, Swagger documentation, test coverage, and containerized local deployment.
+## Architecture
 
----
+### Architectural direction
 
-## Architecture Overview
+- Modular monolith
+- Domain-driven module separation
+- Layered application structure
+- Single-database consistency model
+- REST API boundary for future service extraction
 
-The application is organized as a **layered modular monolith**, where each business capability is grouped into its own package while remaining inside one deployable Spring Boot application.
+### Why a modular monolith
 
-### Core Architectural Principles
+Nexus is intentionally kept as one deployable unit while separating business capabilities into domain modules. That choice keeps operational complexity low in the current stage while preserving extraction seams for future services such as `auth`, `task`, `execution`, or analytics-oriented read workloads.
 
-- Domain-oriented package structure
-- Layered separation of controller, service, repository, and persistence concerns
-- Shared infrastructure for security, configuration, and exception handling
-- Stateless JWT authentication
-- API-first REST design
+This is not presented as a microservices platform today. The repository is structured to make that transition feasible later, not to claim distributed guarantees that do not exist.
 
-### Layered Structure
-
-`Controller -> Service -> Repository -> Database`
-
-- `Controller` handles HTTP requests and response mapping
-- `Service` contains business logic and orchestration
-- `Repository` handles data access through Spring Data JPA
-- `Database` persists application state in PostgreSQL
-
----
-
-## Domain Modules
+### Module boundaries
 
 | Module | Responsibility |
 | --- | --- |
-| `auth` | User registration, login, password encoding, and JWT issuance |
-| `task` | Task creation, retrieval, filtering, streak calculation, and leaderboard computation |
-| `execution` | Daily execution logging, duplicate-per-day prevention, and execution history retrieval |
-| `common` | Shared configuration, JWT security, exception handling, and utility enums |
-| `system` | Root and health endpoints for service availability checks |
+| `auth` | Registration, login, password hashing, and JWT issuance |
+| `task` | Task creation, task retrieval, filters, streak computation, and leaderboard assembly |
+| `execution` | Execution logging, per-task execution history, and execution idempotency constraints |
+| `common` | Shared security, OpenAPI configuration, exception handling, and cross-cutting utilities |
+| `system` | Health and service availability endpoints |
 
----
+### Layered flow
 
-## System Diagram
+`Controller -> Service -> Repository -> PostgreSQL`
 
-```text
-                          +------------------------------+
-                          |        Client Apps           |
-                          |   Web / Mobile / Postman     |
-                          +--------------+---------------+
-                                         |
-                                         v
-                          +------------------------------+
-                          |  Spring Security + JWT Filter|
-                          +--------------+---------------+
-                                         |
-                                         v
-                          +------------------------------+
-                          |      REST Controllers        |
-                          +--------------+---------------+
-                                         |
-                                         v
-        +-------------------------------------------------------------------+
-        |                         Service Layer                             |
-        |      auth      |      task      |    execution    |    common     |
-        +----------------+----------------+-----------------+---------------+
-                                         |
-                                         v
-                          +------------------------------+
-                          |   Spring Data JPA Repos      |
-                          +--------------+---------------+
-                                         |
-                                         v
-                          +------------------------------+
-                          |      PostgreSQL Database     |
-                          +------------------------------+
-```
+Each module follows a conventional layered path:
 
----
+- controllers define HTTP contracts
+- services coordinate workflow rules
+- repositories isolate persistence access
+- entities and DTOs keep domain and transport concerns separated
 
-## Request Flow
+## Workflow Execution Model
 
-### Task Creation Flow
+The workflow subsystem is built around task ownership and execution traceability.
 
-```text
-Client
-  |
-  v
-JWT Authenticated Request
-  |
-  v
-Task Controller
-  |
-  v
-Task Service
-  |
-  +--> Resolve Authenticated User
-  |
-  +--> Validate Duplicate Task Title
-  |
-  +--> Build Task
-  |
-  +--> Persist Task
-  |
-  v
-Task Repository
-  |
-  v
-PostgreSQL Database
-  |
-  v
-API Response
-```
+- A task belongs to a single user.
+- Execution logs are recorded against a task and a calendar date.
+- A composite database uniqueness constraint prevents duplicate execution entries for the same task on the same day.
+- Service-layer ownership checks reject cross-user access to workflow state.
+- Consistency metrics are derived from persisted execution history rather than transient in-memory state.
 
-### Execution Logging Flow
+That model gives the platform a clear audit trail for day-to-day operational activity while staying simple enough to evolve inside a monolith.
 
-```text
-User Request -> JWT Validation -> Execution Controller -> Execution Service
-             -> Validate Task Ownership -> Prevent Same-Day Duplicate Log
-             -> Save Execution Log -> Return Response
-```
+## Feature Highlights
 
----
+- Stateless JWT authentication for protected APIs
+- User-scoped task creation and retrieval
+- Execution lifecycle logging per task
+- Ownership enforcement on workflow access paths
+- Duplicate execution prevention at both service and database layers
+- Streak and consistency calculations from persisted execution history
+- Leaderboard-style aggregation for user consistency scoring
+- OpenAPI documentation for API consumers
+- Containerized runtime with Docker and Docker Compose
+- Actuator-backed health exposure for operational monitoring
 
 ## Tech Stack
 
-| Category | Technologies |
+| Category | Technology |
 | --- | --- |
 | Language | Java 17 |
-| Framework | Spring Boot 3 |
-| Security | Spring Security, JWT Authentication |
+| Framework | Spring Boot 3.5 |
+| Security | Spring Security, JWT |
+| Validation | Jakarta Bean Validation |
 | Persistence | Spring Data JPA, Hibernate |
 | Database | PostgreSQL |
-| Build Tool | Maven Wrapper |
-| API Documentation | Swagger / OpenAPI via Springdoc |
+| Caching | Redis is part of the intended runtime roadmap, but not wired in the current repository revision |
+| API Documentation | Springdoc OpenAPI / Swagger UI |
+| Build | Maven Wrapper |
+| Containers | Docker, Docker Compose |
 | Testing | JUnit 5, Mockito, MockMvc |
-| Containerization | Docker, Docker Compose |
 
----
+## Project Structure
 
-## Features
+```text
+src/
+  main/
+    java/com/executionos/
+      auth/
+        controller/
+        dto/
+        entity/
+        mapper/
+        repository/
+      common/
+        config/
+        exception/
+        response/
+        security/
+        util/
+      execution/
+        controller/
+        dto/
+        entity/
+        mapper/
+        repository/
+        service/
+      system/
+        controller/
+      task/
+        controller/
+        dto/
+        entity/
+        mapper/
+        repository/
+        service/
+      ExecutionOsBackendApplication.java
+    resources/
+      application.yaml
+  test/
+    java/com/executionos/
+      auth/controller/
+      execution/controller/
+      execution/service/
+      task/controller/
+      task/service/
+Dockerfile
+docker-compose.yml
+pom.xml
+README.md
+```
 
-### Core Features
+## Security Implementation
 
-- User registration and login
-- JWT-based stateless authentication
-- Protected task and execution APIs
-- Create tasks for authenticated users
-- Retrieve tasks with optional `status` and `priority` filters
-- Track daily execution logs
-- Prevent duplicate execution logs for the same task on the same day
-- Calculate streak and consistency metrics
-- Generate user consistency leaderboard
+Security is currently centered on stateless API protection and resource ownership enforcement.
 
-### Backend Engineering Features
+- Spring Security is configured for stateless request handling.
+- JWTs are issued on successful authentication and validated through a custom filter.
+- Protected endpoints require an authenticated principal.
+- Passwords are stored with BCrypt hashing.
+- Workflow resources are protected with service-layer ownership checks using the authenticated user identifier.
+- OpenAPI is configured with bearer authentication support for interactive testing.
 
-- Global exception handling
-- DTO-based API contracts
-- Controller layer tests with MockMvc
-- Service layer unit tests with Mockito
-- Swagger UI integration
-- Multi-stage Docker build
-- Docker Compose setup with PostgreSQL health checks
+### Authorization note
 
----
+This codebase currently implements JWT authentication plus ownership-based authorization. It does not yet include a full RBAC matrix, role entity model, or policy layer. Role-based operational workflows are an appropriate next step, but they should be added explicitly rather than implied.
 
-## Swagger Docs
+## Database and Transactional Consistency
 
-Swagger UI is available at:
+Nexus uses PostgreSQL as the system of record and keeps write consistency inside a single relational boundary.
 
-`http://localhost:8080/swagger-ui.html`
+- Task and execution state live in the same database, which keeps workflow updates synchronous and predictable.
+- Execution logging uses a composite unique constraint on `task_id` and `date` to prevent duplicate same-day execution records.
+- The service layer performs application-level validation before persistence and still relies on the database as the final consistency guard.
+- The current design favors single-node transactional integrity over distributed coordination.
 
-OpenAPI JSON is available at:
+### Production note
 
-`http://localhost:8080/v3/api-docs`
+The repository currently uses `spring.jpa.hibernate.ddl-auto=update` for convenience. A production rollout should replace that with explicit schema migrations through Flyway or Liquibase before promoting the service to a controlled environment.
 
----
+## Redis Caching Strategy
 
+Redis is part of the platform's intended operational design, but it is not integrated in the current codebase yet.
+
+The natural fit for Redis in Nexus would be:
+
+- caching leaderboard or consistency read models
+- short-lived workflow aggregation results
+- token revocation or session invalidation support
+- rate-limiting or coordination primitives for higher write concurrency
+
+That makes Redis a planned acceleration layer, not a correctness dependency. PostgreSQL remains the source of truth.
+
+## API Documentation
+
+Swagger UI and OpenAPI are enabled through Springdoc.
+
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+- Health endpoint: `http://localhost:8080/api/system/health`
+
+### Primary API surface
+
+| Area | Endpoints |
+| --- | --- |
+| Auth | `POST /api/v1/auth/register`, `POST /api/v1/auth/login` |
+| Tasks | `POST /api/v1/tasks`, `GET /api/v1/tasks` |
+| Execution | `POST /api/v1/tasks/{taskId}/execution`, `GET /api/v1/tasks/{taskId}/execution` |
+| Metrics | `GET /api/v1/tasks/{taskId}/streak`, `GET /api/v1/tasks/leaderboard` |
+| System | `GET /api/system/health` |
 
 ## Docker Setup
 
-The project includes:
+The repository includes:
 
-- Multi-stage `Dockerfile`
-- `docker-compose.yml` for backend + PostgreSQL
-- Persistent PostgreSQL volume
-- Database health check using `pg_isready`
-- Spring datasource configuration through environment variables
-- PostgreSQL exposed on host port `5433`
+- a multi-stage `Dockerfile`
+- a `docker-compose.yml` for the backend and PostgreSQL
+- a PostgreSQL health check using `pg_isready`
+- a non-root runtime container user
+- environment-driven datasource wiring for containers
 
-Run the full system with:
+### Start the stack
 
 ```bash
 docker compose up --build
 ```
 
-Stop it with:
+### Stop the stack
 
 ```bash
 docker compose down
 ```
 
----
+### Container endpoints
 
-## Project Structure
+- API: `http://localhost:8080`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- PostgreSQL host port: `5433`
 
-```text
-execution-os-backend/
-|-- .mvn/
-|-- src/
-|   |-- main/
-|   |   |-- java/
-|   |   |   `-- com/
-|   |   |       `-- executionos/
-|   |   |           |-- auth/
-|   |   |           |-- common/
-|   |   |           |-- execution/
-|   |   |           |-- system/
-|   |   |           |-- task/
-|   |   |           `-- ExecutionOsBackendApplication.java
-|   |   `-- resources/
-|   |       `-- application.yaml
-|   `-- test/
-|       `-- java/
-|           `-- com/
-|               `-- executionos/
-|                   |-- auth/controller/
-|                   |-- execution/controller/
-|                   |-- execution/service/
-|                   |-- task/controller/
-|                   `-- task/service/
-|-- .dockerignore
-|-- Dockerfile
-|-- docker-compose.yml
-|-- pom.xml
-|-- mvnw
-|-- mvnw.cmd
-`-- README.md
-```
-
----
-
-## Getting Started
+## Local Development
 
 ### Prerequisites
 
 - Java 17
-- PostgreSQL
-- Docker Desktop or Docker Engine
+- Maven wrapper support
+- PostgreSQL 15+ or a compatible local PostgreSQL instance
+- Docker Desktop or Docker Engine for containerized runs
 
-### Clone Repository
-
-```bash
-git clone <repository-url>
-cd execution-os-backend
-```
-
-### Build the Project
+### Build
 
 ```bash
 ./mvnw clean package
 ```
 
-On Windows:
+Windows PowerShell:
 
 ```powershell
 .\mvnw.cmd clean package
 ```
 
-### Run the Application
+### Run locally
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-On Windows:
+Windows PowerShell:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
----
-
-## Configuration
-
-The application supports local file-based configuration and containerized environment-variable configuration.
-
-### Local Defaults
-
-Current defaults in `application.yaml`:
-
-| Variable | Default |
-| --- | --- |
-| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/execution_os` |
-| `spring.datasource.username` | `execution_user` |
-| `spring.datasource.password` | `secure123` |
-| `spring.jpa.hibernate.ddl-auto` | `update` |
-| `spring.jpa.show-sql` | `true` |
-| `server.port` | `8080` |
-
-### Docker Environment Variables
-
-The Docker Compose setup injects:
-
-| Variable | Value |
-| --- | --- |
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://postgres:5432/execution_os` |
-| `SPRING_DATASOURCE_USERNAME` | `execution_user` |
-| `SPRING_DATASOURCE_PASSWORD` | `secure123` |
-
----
-
-## API Snapshot
-
-### Auth Endpoints
-
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-
-### Task Endpoints
-
-- `POST /api/v1/tasks`
-- `GET /api/v1/tasks`
-- `GET /api/v1/tasks/{taskId}/streak`
-- `GET /api/v1/tasks/leaderboard`
-
-### Execution Endpoints
-
-- `POST /api/v1/tasks/{taskId}/execution`
-- `GET /api/v1/tasks/{taskId}/execution`
-
----
-
-## Security
-
-- All endpoints except `/api/v1/auth/**` require authentication
-- JWT bearer tokens are validated by a custom `JwtFilter`
-- Authenticated user identity is derived from the token subject
-- Cross-user task execution is rejected at service level
-
-Example header:
-
-```http
-Authorization: Bearer <jwt-token>
-```
-
----
-
-## Testing
-
-The project includes:
-
-- Service-layer unit tests for `TaskServiceImpl`
-- Service-layer unit tests for `ExecutionService`
-- Controller-layer `MockMvc` tests for:
-  - `AuthController`
-  - `TaskController`
-  - `ExecutionController`
-
-Run tests with:
+### Run tests
 
 ```bash
 ./mvnw test
 ```
 
-On Windows:
+Windows PowerShell:
 
 ```powershell
 .\mvnw.cmd test
 ```
 
----
+## Environment Configuration
 
-## CI Pipeline
+The application reads configuration from environment variables with local defaults in `src/main/resources/application.yaml`.
 
-The repository includes a GitHub Actions workflow at `.github/workflows/docker-ci.yml`.
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `PORT` | HTTP server port | `8080` |
+| `SPRING_DATASOURCE_URL` | PostgreSQL JDBC URL | `jdbc:postgresql://localhost:5432/execution_os` |
+| `SPRING_DATASOURCE_USERNAME` | Database username | `execution_user` |
+| `SPRING_DATASOURCE_PASSWORD` | Database password | `secure123` |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | Hibernate schema strategy | `update` |
 
-Pipeline flow:
+### Operational recommendation
 
-`Local Development -> GitHub Repository -> GitHub Actions -> Maven Build/Test -> Docker Build -> Docker Hub -> Render`
+For non-local environments:
 
-On every push to `main`, GitHub Actions will:
+- move all secrets into environment-managed configuration
+- replace inline development credentials
+- externalize JWT signing secrets
+- disable verbose SQL logging
+- pin schema changes through migrations
 
-1. Checkout the repository
-2. Set up Java 17 with Maven dependency caching
-3. Run `./mvnw -B clean package -DskipTests`
-4. Build the Docker image from the root `Dockerfile`
-5. Log in to Docker Hub using repository secrets
-6. Push the image as `<dockerhub-username>/execution-os-backend:latest`
-7. Trigger a Render deploy hook
+## CI/CD
 
-### Required GitHub Secrets
+The repository includes GitHub Actions workflows under `.github/workflows/`.
 
-Configure these repository secrets under `Settings -> Secrets and variables -> Actions`:
+Current delivery automation includes:
 
-| Secret | Purpose |
-| --- | --- |
-| `DOCKER_USERNAME` | Docker Hub username |
-| `DOCKER_PASSWORD` | Docker Hub password or access token |
-| `RENDER_DEPLOY_HOOK` | Render deploy hook URL |
+- Maven build on push to `main`
+- Docker image build and push to Docker Hub
+- Render deploy hook trigger after image publication
 
-### Render Deployment From Docker Hub
+The present CI pipeline builds with `-DskipTests`. For a production release workflow, test execution should be mandatory before image publication.
 
-To deploy this backend on Render using the Docker Hub image:
+## Scalability Roadmap
 
-1. Push code to the `main` branch so GitHub Actions publishes the image
-2. Open Render and create a new `Web Service`
-3. Choose `Deploy an existing image from a registry`
-4. Set the image to `<dockerhub-username>/execution-os-backend:latest`
-5. Set the service port to `8080`
-6. Add required environment variables such as:
-   - `SPRING_DATASOURCE_URL`
-   - `SPRING_DATASOURCE_USERNAME`
-   - `SPRING_DATASOURCE_PASSWORD`
-   - `SPRING_JPA_HIBERNATE_DDL_AUTO`
-   - `PORT=8080`
-7. Deploy the service and enable auto-deploy or manual redeploys as needed when a new image is pushed
+Near-term engineering improvements that fit the current architecture:
 
-Render will pull the latest Docker image from Docker Hub and start the container with:
+- introduce Flyway or Liquibase migrations
+- externalize JWT secret management
+- add explicit role and permission modeling for RBAC
+- integrate Redis for hot-path read caching and operational controls
+- add pagination and query optimization for read-heavy aggregation endpoints
+- introduce audit fields and richer workflow state transitions
+- extract `execution` and analytics-oriented read paths once independent scaling pressure exists
 
-`java -jar /app/app.jar`
+## Engineering Positioning
 
----
-
-## Future Improvements
-
-- Externalize the JWT secret into environment configuration
-- Add Flyway or Liquibase database migrations
-- Add update and delete task endpoints
-- Add ownership checks for every task-derived analytics endpoint
-- Introduce profile-based production configuration
-
----
-
-## Author
-
-**Abinash Nayak**  
-Java Backend Developer  
-GitHub: [Aj-world](https://github.com/Aj-world)
+Nexus is best understood as a scalable backend foundation rather than a feature-maximal workflow suite. Its value is in the system shape: clear domain boundaries, secure request handling, relational consistency, and a codebase that can mature toward stronger operational requirements without a rewrite.

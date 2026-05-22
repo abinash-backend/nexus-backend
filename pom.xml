@@ -11,8 +11,8 @@
 	<groupId>com.executionos</groupId>
 	<artifactId>execution-os-backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
+	<name>Nexus | Workflow Execution Platform</name>
+	<description>Backend API for Nexus | Workflow Execution Platform</description>
 	<url/>
 	<licenses>
 		<license/>

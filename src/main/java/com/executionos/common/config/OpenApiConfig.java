@@ -18,9 +18,9 @@ public class OpenApiConfig {
 
         return new OpenAPI()
                 .info(new Info()
-                        .title("Execution OS API")
+                        .title("Nexus | Workflow Execution Platform")
                         .version("v1")
-                        .description("Execution OS backend REST API documentation"))
+                        .description("REST API documentation for Nexus | Workflow Execution Platform"))
 
                 .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
 

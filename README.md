@@ -9,83 +9,98 @@
 ![OpenAPI](https://img.shields.io/badge/API-OpenAPI-85EA2D?style=flat-square&logo=swagger)
 ![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-333333?style=flat-square)
 
-Nexus is a backend platform for workflow execution, task orchestration, and execution lifecycle tracking. It is implemented as a Spring Boot modular monolith with explicit domain boundaries so the codebase can scale operationally today and be decomposed into services later without forcing an early distributed systems design.
+**Nexus** is a backend platform for workflow execution, task orchestration, and execution lifecycle tracking. Built as a modular Spring Boot service with explicit domain boundaries, stateless REST APIs, and production-grade security and operational patterns.
 
-The current repository focuses on secure API delivery, workflow accountability, and predictable state handling inside a single deployable unit. The architecture is backend-first: REST APIs, relational persistence, stateless authentication, containerized runtime, and domain separation that supports long-term maintainability.
+The system emphasizes reliable workflow state evolution, ownership enforcement, and data integrity without premature distributed complexity. Architected as a monolith today with clear module separation designed to support future service extraction if scaling demands justify it.
 
 ## Overview
 
-Nexus models workflow execution as a controlled lifecycle:
+Nexus models workflow execution as a controlled, auditable lifecycle:
 
 1. An authenticated user registers or signs in and receives a JWT.
 2. The user creates tasks that become workflow units owned by that identity.
 3. Execution events are recorded against those tasks on a per-day basis.
-4. The platform enforces ownership and duplicate-execution guards.
+4. The platform enforces ownership and prevents duplicate same-day execution records through application and database layer validation.
 5. Read models expose task state, execution history, and consistency metrics.
 
-This keeps the platform centered on operational accountability rather than simple CRUD. The main design goal is reliable workflow state evolution under a clear module structure.
+This keeps the platform centered on operational accountability rather than simple CRUD operations. The main design goal is reliable workflow state evolution inside a clearly modeled, layered architecture.
 
 ## Architecture
 
-### Architectural direction
+### Architectural Direction
 
-- Modular monolith
-- Domain-driven module separation
-- Layered application structure
-- Single-database consistency model
-- REST API boundary for future service extraction
+- **Modular monolith:** Single deployable unit with explicit domain module separation
+- **Domain-driven module boundaries:** Each business capability owns its controllers, services, repositories, and entities
+- **Layered application structure:** Controller → Service → Repository → PostgreSQL
+- **Single-database consistency model:** Transactional integrity maintained via relational constraints
+- **REST API boundary:** Designed to enable future service extraction with minimal refactoring
 
-### Why a modular monolith
+### Why Modular Monolith
 
-Nexus is intentionally kept as one deployable unit while separating business capabilities into domain modules. That choice keeps operational complexity low in the current stage while preserving extraction seams for future services such as `auth`, `task`, `execution`, or analytics-oriented read workloads.
+Nexus is architected as one deployable application while separating business capabilities into domain modules. This choice optimizes for:
 
-This is not presented as a microservices platform today. The repository is structured to make that transition feasible later, not to claim distributed guarantees that do not exist.
+- **Operational simplicity:** Single deployment process, straightforward local development, no inter-service coordination overhead
+- **Transactional consistency:** All writes go through one database connection, preventing distributed coordination complexity
+- **Developer velocity:** No service discovery, timeout handling, or retry logic to debug during feature development
+- **Clear extraction path:** Module boundaries and REST API layers are designed so that if scaling pressure justifies service independence, extraction requires only configuration changes, not core refactoring
 
-### Module boundaries
+This is not a premature microservices claim. The architecture is intentionally scaled to current constraints while preserving the option to distribute if requirements change.
+
+### Module Boundaries
 
 | Module | Responsibility |
 | --- | --- |
-| `auth` | Registration, login, password hashing, and JWT issuance |
-| `task` | Task creation, task retrieval, filters, streak computation, and leaderboard assembly |
-| `execution` | Execution logging, per-task execution history, and execution idempotency constraints |
-| `common` | Shared security, OpenAPI configuration, exception handling, and cross-cutting utilities |
+| `auth` | User registration, login, password hashing (BCrypt), and JWT issuance |
+| `task` | Task creation, retrieval, filtering, streak computation, and leaderboard assembly |
+| `execution` | Execution logging, per-task execution history, and execution idempotency enforcement |
+| `common` | Shared security configuration, OpenAPI setup, exception handling, and cross-cutting utilities |
 | `system` | Health and service availability endpoints |
 
-### Layered flow
+### Layered Flow
 
-`Controller -> Service -> Repository -> PostgreSQL`
+```
+Controller → Service → Repository → PostgreSQL
+```
 
-Each module follows a conventional layered path:
+Each module follows this layered path:
 
-- controllers define HTTP contracts
-- services coordinate workflow rules
-- repositories isolate persistence access
-- entities and DTOs keep domain and transport concerns separated
+- **Controllers** define HTTP contracts and request mapping
+- **Services** orchestrate workflow rules and business logic
+- **Repositories** isolate persistence access through Spring Data JPA
+- **Entities and DTOs** keep domain and transport concerns separated
 
 ## Workflow Execution Model
 
-The workflow subsystem is built around task ownership and execution traceability.
+The workflow subsystem is built around task ownership and execution traceability:
 
-- A task belongs to a single user.
-- Execution logs are recorded against a task and a calendar date.
-- A composite database uniqueness constraint prevents duplicate execution entries for the same task on the same day.
-- Service-layer ownership checks reject cross-user access to workflow state.
-- Consistency metrics are derived from persisted execution history rather than transient in-memory state.
+- A task belongs to a single user (owner)
+- Execution logs are recorded against a task and a specific calendar date
+- A composite database uniqueness constraint (`task_id`, `date`) prevents duplicate execution entries for the same task on the same day
+- Service-layer ownership checks reject cross-user access to workflow state
+- Consistency metrics (streaks, leaderboard rankings) are derived from persisted execution history rather than in-memory transient state
 
-That model gives the platform a clear audit trail for day-to-day operational activity while staying simple enough to evolve inside a monolith.
+**Idempotency Strategy:**
+
+Duplicate execution prevention is enforced at both application and database layers:
+
+1. **Application layer:** Service checks for existing execution record before accepting new log
+2. **Database layer:** Composite unique constraint on `(task_id, date)` prevents duplicate inserts if application layer checks are bypassed
+
+This dual-layer approach ensures correctness under concurrent request scenarios without distributed coordination.
 
 ## Feature Highlights
 
-- Stateless JWT authentication for protected APIs
-- User-scoped task creation and retrieval
-- Execution lifecycle logging per task
-- Ownership enforcement on workflow access paths
-- Duplicate execution prevention at both service and database layers
-- Streak and consistency calculations from persisted execution history
-- Leaderboard-style aggregation for user consistency scoring
-- OpenAPI documentation for API consumers
-- Containerized runtime with Docker and Docker Compose
-- Actuator-backed health exposure for operational monitoring
+- **Stateless JWT authentication** for protected APIs with bearer token validation
+- **User-scoped task creation and retrieval** with ownership enforcement at service layer
+- **Execution lifecycle logging** per task with per-day granularity
+- **Ownership enforcement** on all workflow access paths, preventing unauthorized cross-user access
+- **Duplicate execution prevention** through application-layer validation and database constraints
+- **Streak and consistency calculations** derived from persisted execution history
+- **Leaderboard-style aggregation** for user consistency scoring and ranking
+- **OpenAPI documentation** with interactive Swagger UI for API exploration and testing
+- **Containerized runtime** with Docker and Docker Compose for reproducible local and deployment environments
+- **Actuator-backed health monitoring** for operational visibility
+- **GitHub Actions CI** for automated build and test verification on code push
 
 ## Tech Stack
 
@@ -93,15 +108,15 @@ That model gives the platform a clear audit trail for day-to-day operational act
 | --- | --- |
 | Language | Java 17 |
 | Framework | Spring Boot 3.5 |
-| Security | Spring Security, JWT |
+| Security | Spring Security, JWT (stateless bearer tokens) |
 | Validation | Jakarta Bean Validation |
 | Persistence | Spring Data JPA, Hibernate |
-| Database | PostgreSQL |
-| Caching | Redis is part of the intended runtime roadmap, but not wired in the current repository revision |
+| Database | PostgreSQL 15 |
 | API Documentation | Springdoc OpenAPI / Swagger UI |
 | Build | Maven Wrapper |
 | Containers | Docker, Docker Compose |
 | Testing | JUnit 5, Mockito, MockMvc |
+| CI/CD | GitHub Actions |
 
 ## Project Structure
 
@@ -155,98 +170,105 @@ README.md
 
 ## Security Implementation
 
-Security is currently centered on stateless API protection and resource ownership enforcement.
+Security is implemented as a stateless request pipeline with explicit authorization checks:
 
-- Spring Security is configured for stateless request handling.
-- JWTs are issued on successful authentication and validated through a custom filter.
-- Protected endpoints require an authenticated principal.
-- Passwords are stored with BCrypt hashing.
-- Workflow resources are protected with service-layer ownership checks using the authenticated user identifier.
-- OpenAPI is configured with bearer authentication support for interactive testing.
+- **Spring Security configuration** set to stateless mode (`SessionCreationPolicy.STATELESS`)
+- **JWT authentication filter** validates bearer tokens on each request and hydrates the Spring Security context
+- **Protected endpoints** require an authenticated principal; unauthenticated requests receive 401 responses
+- **Passwords stored with BCrypt hashing** using Spring Security's `BCryptPasswordEncoder`
+- **Service-layer authorization checks** enforce resource ownership using the authenticated user identifier
+- **OpenAPI configuration** includes bearer authentication metadata for interactive Swagger testing
 
-### Authorization note
+### Authorization Model
 
-This codebase currently implements JWT authentication plus ownership-based authorization. It does not yet include a full RBAC matrix, role entity model, or policy layer. Role-based operational workflows are an appropriate next step, but they should be added explicitly rather than implied.
+Resource authorization is enforced at the service layer, not just at the endpoint level:
+
+- **Authentication:** Validated via JWT bearer token
+- **Authorization:** Ownership scoped—a task belongs to a user; only that user can read or modify it
+- **No framework magic:** Authorization checks are explicit in service code, not hidden in annotations
+
+This approach is simple, auditable, and scales to more complex RBAC if needed later.
 
 ## Database and Transactional Consistency
 
-Nexus uses PostgreSQL as the system of record and keeps write consistency inside a single relational boundary.
+Nexus uses PostgreSQL as the system of record and maintains write consistency inside a single relational boundary:
 
-- Task and execution state live in the same database, which keeps workflow updates synchronous and predictable.
-- Execution logging uses a composite unique constraint on `task_id` and `date` to prevent duplicate same-day execution records.
-- The service layer performs application-level validation before persistence and still relies on the database as the final consistency guard.
-- The current design favors single-node transactional integrity over distributed coordination.
+- **Task and execution state** live in the same database, keeping workflow updates synchronous and predictable
+- **Composite unique constraints** on `(task_id, date)` prevent duplicate execution records at the database level
+- **Service-layer validation** performs application-level checks before persistence, with the database serving as the final consistency guard
+- **Single-node transactional integrity:** All writes complete within a single transaction; no distributed coordination required
 
-### Production note
+### Schema Management
 
-The repository currently uses `spring.jpa.hibernate.ddl-auto=update` for convenience. A production rollout should replace that with explicit schema migrations through Flyway or Liquibase before promoting the service to a controlled environment.
+The current development configuration uses `spring.jpa.hibernate.ddl-auto=update` for convenience.
 
-## Redis Caching Strategy
+**For production deployments:**
 
-Redis is part of the platform's intended operational design, but it is not integrated in the current codebase yet.
+Replace `ddl-auto=update` with explicit schema migrations using **Flyway** or **Liquibase**. This ensures:
+- Reproducible schema changes across environments
+- Safe rollback capabilities
+- Audit trail of schema evolution
+- Team collaboration on database changes
 
-The natural fit for Redis in Nexus would be:
+See [Scalability Roadmap](#scalability-roadmap) for migration tooling integration.
 
-- caching leaderboard or consistency read models
-- short-lived workflow aggregation results
-- token revocation or session invalidation support
-- rate-limiting or coordination primitives for higher write concurrency
-
-That makes Redis a planned acceleration layer, not a correctness dependency. PostgreSQL remains the source of truth.
-
-## API Documentation
-
-Swagger UI and OpenAPI are enabled through Springdoc.
-
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
-- Health endpoint: `http://localhost:8080/api/system/health`
-
-### Primary API surface
+## API Surface
 
 | Area | Endpoints |
 | --- | --- |
-| Auth | `POST /api/v1/auth/register`, `POST /api/v1/auth/login` |
-| Tasks | `POST /api/v1/tasks`, `GET /api/v1/tasks` |
-| Execution | `POST /api/v1/tasks/{taskId}/execution`, `GET /api/v1/tasks/{taskId}/execution` |
-| Metrics | `GET /api/v1/tasks/{taskId}/streak`, `GET /api/v1/tasks/leaderboard` |
-| System | `GET /api/system/health` |
+| **Auth** | `POST /api/v1/auth/register`, `POST /api/v1/auth/login` |
+| **Tasks** | `POST /api/v1/tasks`, `GET /api/v1/tasks` |
+| **Execution** | `POST /api/v1/tasks/{taskId}/execution`, `GET /api/v1/tasks/{taskId}/execution` |
+| **Metrics** | `GET /api/v1/tasks/{taskId}/streak`, `GET /api/v1/tasks/leaderboard` |
+| **System** | `GET /api/system/health` |
+
+All responses follow a consistent JSON envelope. Errors include structured details: status code, error type, message, timestamp, and request path.
+
+## API Documentation
+
+Swagger UI and OpenAPI are enabled through Springdoc:
+
+- **Swagger UI:** `http://localhost:8080/swagger-ui.html`
+- **OpenAPI JSON:** `http://localhost:8080/v3/api-docs`
+- **Health endpoint:** `http://localhost:8080/api/system/health`
+
+The OpenAPI configuration includes bearer authentication metadata, allowing secured endpoints to be exercised directly from the Swagger interface.
 
 ## Docker Setup
 
 The repository includes:
 
-- a multi-stage `Dockerfile`
-- a `docker-compose.yml` for the backend and PostgreSQL
-- a PostgreSQL health check using `pg_isready`
-- a non-root runtime container user
-- environment-driven datasource wiring for containers
+- A multi-stage `Dockerfile` with minimal runtime image size
+- A `docker-compose.yml` stack for backend and PostgreSQL
+- PostgreSQL health checks using `pg_isready`
+- Non-root runtime container user for security
+- Environment-driven datasource configuration for container deployment
 
-### Start the stack
+### Start the Stack
 
 ```bash
 docker compose up --build
 ```
 
-### Stop the stack
+### Stop the Stack
 
 ```bash
 docker compose down
 ```
 
-### Container endpoints
+### Container Access
 
-- API: `http://localhost:8080`
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- PostgreSQL host port: `5433`
+- **API:** `http://localhost:8080`
+- **Swagger UI:** `http://localhost:8080/swagger-ui.html`
+- **PostgreSQL host port:** `5433`
 
 ## Local Development
 
 ### Prerequisites
 
 - Java 17
-- Maven wrapper support
-- PostgreSQL 15+ or a compatible local PostgreSQL instance
+- Maven wrapper support (included)
+- PostgreSQL 15+ (or use Docker Compose to run infrastructure only)
 - Docker Desktop or Docker Engine for containerized runs
 
 ### Build
@@ -255,31 +277,31 @@ docker compose down
 ./mvnw clean package
 ```
 
-Windows PowerShell:
+**Windows PowerShell:**
 
 ```powershell
 .\mvnw.cmd clean package
 ```
 
-### Run locally
+### Run Locally
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Windows PowerShell:
+**Windows PowerShell:**
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-### Run tests
+### Run Tests
 
 ```bash
 ./mvnw test
 ```
 
-Windows PowerShell:
+**Windows PowerShell:**
 
 ```powershell
 .\mvnw.cmd test
@@ -287,7 +309,7 @@ Windows PowerShell:
 
 ## Environment Configuration
 
-The application reads configuration from environment variables with local defaults in `src/main/resources/application.yaml`.
+The application reads configuration from environment variables with defaults in `src/main/resources/application.yaml`:
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
@@ -296,41 +318,71 @@ The application reads configuration from environment variables with local defaul
 | `SPRING_DATASOURCE_USERNAME` | Database username | `execution_user` |
 | `SPRING_DATASOURCE_PASSWORD` | Database password | `secure123` |
 | `SPRING_JPA_HIBERNATE_DDL_AUTO` | Hibernate schema strategy | `update` |
+| `JWT_SECRET` | JWT signing secret | (required in production) |
 
-### Operational recommendation
+### For Non-Local Environments
 
-For non-local environments:
-
-- move all secrets into environment-managed configuration
-- replace inline development credentials
-- externalize JWT signing secrets
-- disable verbose SQL logging
-- pin schema changes through migrations
+- Move all secrets into environment-managed configuration (never commit credentials)
+- Externalize JWT signing secrets with sufficient entropy (minimum 32 characters)
+- Disable verbose SQL logging
+- Replace `ddl-auto=update` with explicit Flyway or Liquibase migrations
+- Enable HTTPS and secure cookie flags
 
 ## CI/CD
 
-The repository includes GitHub Actions workflows under `.github/workflows/`.
+The repository includes GitHub Actions workflows under `.github/workflows/`:
 
-Current delivery automation includes:
+- **Maven build and verification** on pushes to `main`
+- **Docker image build** with multi-stage caching
+- **Automated test execution** (currently skipped; should be mandatory for production workflows)
+- **Push to Docker Hub** for image distribution
+- **Deployment trigger** to cloud hosting platform
 
-- Maven build on push to `main`
-- Docker image build and push to Docker Hub
-- Render deploy hook trigger after image publication
+### Recommended Production Workflow
 
-The present CI pipeline builds with `-DskipTests`. For a production release workflow, test execution should be mandatory before image publication.
+For production-grade CI/CD:
+
+- ✅ Make test execution mandatory before image publication
+- ✅ Add security scanning (dependency vulnerabilities, SAST analysis)
+- ✅ Implement deployment approvals for production environments
+- ✅ Add performance regression testing for critical paths
 
 ## Scalability Roadmap
 
-Near-term engineering improvements that fit the current architecture:
+The current architecture is intentionally conservative. The following improvements fit naturally into the design and can be prioritized based on actual operational requirements:
 
-- introduce Flyway or Liquibase migrations
-- externalize JWT secret management
-- add explicit role and permission modeling for RBAC
-- integrate Redis for hot-path read caching and operational controls
-- add pagination and query optimization for read-heavy aggregation endpoints
-- introduce audit fields and richer workflow state transitions
-- extract `execution` and analytics-oriented read paths once independent scaling pressure exists
+### High Priority (Immediate Value)
 
-## Engineering Positioning
+- **Introduce schema migrations:** Replace `ddl-auto=update` with Flyway or Liquibase for safe, reproducible schema evolution
+- **Externalize JWT secret management:** Use environment-based secret injection or dedicated secret management services
+- **Add explicit role and permission modeling:** Extend ownership-based auth to support team-based access control and fine-grained RBAC if needed
 
-Nexus is best understood as a scalable backend foundation rather than a feature-maximal workflow suite. Its value is in the system shape: clear domain boundaries, secure request handling, relational consistency, and a codebase that can mature toward stronger operational requirements without a rewrite.
+### Medium Priority (Operational Excellence)
+
+- **Integrate Redis for caching:** Add caching layer for leaderboard and consistency read models—reduces database queries on high-traffic reads
+- **Add pagination and query optimization:** Implement cursor-based pagination and database query analysis for read-heavy aggregation endpoints
+- **Introduce audit fields:** Add `created_by`, `created_at`, `updated_by`, `updated_at` timestamps for compliance and debugging
+
+### Lower Priority (Future Scaling)
+
+- **Extract execution module as service:** If execution logging becomes independent scaling bottleneck, extract as separate Spring Boot application with event-driven sync
+- **Implement observability layer:** Structured logging, distributed tracing (OpenTelemetry), and metrics collection for multi-service deployments
+- **Add async workflow boundaries:** If payment or notification side effects justify asynchronicity, introduce message queue integration
+
+## Production Readiness Checklist
+
+Before deploying to production users:
+
+- [ ] Replace `spring.jpa.hibernate.ddl-auto=update` with Flyway migrations
+- [ ] Externalize all secrets (JWT secret, database credentials, API keys)
+- [ ] Enable HTTPS and secure communication channels
+- [ ] Implement rate limiting and DDoS protection
+- [ ] Set up centralized logging and monitoring
+- [ ] Define backup and disaster recovery procedures
+- [ ] Conduct security audit and penetration testing
+- [ ] Document runbooks for common operational scenarios
+- [ ] Set up alerting for critical application and infrastructure metrics
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
